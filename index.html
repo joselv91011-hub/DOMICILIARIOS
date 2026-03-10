@@ -140,6 +140,52 @@
             font-weight: 600;
         }
 
+        .stat {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stat:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary);
+        }
+
+        .stat.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .stat.active,
+        .stat.active span {
+            color: white;
+        }
+
+        .search-container {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .search-container i {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+        }
+
+        .search-container input {
+            padding-left: 45px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .almorzando {
+            background: rgba(248, 150, 30, 0.1);
+            color: #d87d0a;
+        }
+
+
         .lista {
             display: flex;
             flex-direction: column;
@@ -243,6 +289,17 @@
 
         .btnEliminar:hover {
             background: var(--danger);
+            color: white;
+        }
+
+        .btnAlmorzar {
+            background: #fff;
+            color: var(--warning);
+            border-color: var(--warning);
+        }
+
+        .btnAlmorzar:hover {
+            background: var(--warning);
             color: white;
         }
 
@@ -360,13 +417,21 @@
 
         </div>
 
+        <div class="search-container">
+            <i class="fas fa-search"></i>
+            <input type="text" id="busqueda" placeholder="Buscar domiciliario por nombre..." oninput="render()">
+        </div>
+
         <div class="stats">
 
-            <div class="stat">Activos: <span id="activos">0</span></div>
+            <div class="stat active" id="stat-total" onclick="filtrar('todos')">Total: <span id="total">0</span></div>
 
-            <div class="stat">En Ruta: <span id="ruta">0</span></div>
+            <div class="stat" id="stat-activo" onclick="filtrar('activo')">Activos: <span id="activos">0</span></div>
 
-            <div class="stat">Total: <span id="total">0</span></div>
+            <div class="stat" id="stat-ruta" onclick="filtrar('ruta')">En Ruta: <span id="ruta">0</span></div>
+
+            <div class="stat" id="stat-almorzando" onclick="filtrar('almorzando')">Almuerzo: <span
+                    id="almorzando">0</span></div>
 
         </div>
 
@@ -377,6 +442,8 @@
     <script>
 
         let domiciliarios = JSON.parse(localStorage.getItem("domiciliarios")) || [];
+
+        let filtroActual = 'todos';
 
         function guardar() {
             localStorage.setItem("domiciliarios", JSON.stringify(domiciliarios));
@@ -402,13 +469,34 @@
         function cambiarEstado(i) {
 
             let d = domiciliarios[i];
-            let nuevoEstado = d.estado === "activo" ? "ruta" : "activo";
+            let nuevoEstado;
+
+            if (d.estado === "activo") {
+                nuevoEstado = "ruta";
+            } else {
+                nuevoEstado = "activo";
+            }
+
             d.estado = nuevoEstado;
 
-            // Al pasar a ruta, se mueve al final de la cola
-            if (nuevoEstado === "ruta") {
+            // Al cambiar de estado, se mueve al final de la cola
+            let [item] = domiciliarios.splice(i, 1);
+            domiciliarios.push(item);
+
+            guardar();
+            render();
+        }
+
+        function ponerAlmorzar(i) {
+            let d = domiciliarios[i];
+
+            if (d.estado === "almorzando") {
+                d.estado = "activo";
+                // Al volver de almorzar, va al final de la cola
                 let [item] = domiciliarios.splice(i, 1);
                 domiciliarios.push(item);
+            } else {
+                d.estado = "almorzando";
             }
 
             guardar();
@@ -442,33 +530,75 @@
             render();
         }
 
+        function filtrar(estado) {
+            filtroActual = estado;
+
+            // Actualizar clases activas en las tarjetas
+            document.querySelectorAll('.stat').forEach(el => el.classList.remove('active'));
+            document.getElementById('stat-' + (estado === 'todos' ? 'total' : estado)).classList.add('active');
+
+            render();
+        }
+
         function render() {
 
             let lista = document.getElementById("lista");
+            let busqueda = document.getElementById("busqueda").value.toLowerCase();
 
             lista.innerHTML = "";
 
             let activos = 0;
             let ruta = 0;
+            let almorzando = 0;
 
-            domiciliarios.forEach((d, i) => {
-
+            // Primero calculamos los totales generales (sin filtros)
+            domiciliarios.forEach(d => {
                 if (d.estado === "activo") activos++;
                 if (d.estado === "ruta") ruta++;
+                if (d.estado === "almorzando") almorzando++;
+            });
 
-                let clase = d.estado === "activo" ? "activo" : "ruta";
-                let texto = d.estado === "activo" ? "ACTIVO" : "EN RUTA";
-                let iconEstado = d.estado === "activo" ? "fa-motorcycle" : "fa-home";
+            // Luego renderizamos aplicando filtros
+            domiciliarios.forEach((d, i) => {
 
-                lista.innerHTML += `
+                let coincideBusqueda = d.nombre.toLowerCase().includes(busqueda);
+                let coincideFiltro = filtroActual === 'todos' || d.estado === filtroActual;
+
+                if (coincideBusqueda && coincideFiltro) {
+                    let clase = d.estado;
+                    let texto = d.estado.toUpperCase().replace('RUTA', 'EN RUTA');
+
+                    let btnEstadoIcon = "";
+                    let btnEstadoAction = "";
+                    let btnEstadoTitle = "";
+
+                    if (d.estado === "activo") {
+                        btnEstadoIcon = "fa-route";
+                        btnEstadoAction = `cambiarEstado(${i})`;
+                        btnEstadoTitle = "Pasar a Ruta";
+                    } else if (d.estado === "ruta") {
+                        btnEstadoIcon = "fa-check";
+                        btnEstadoAction = `cambiarEstado(${i})`;
+                        btnEstadoTitle = "Pasar a Activo";
+                    } else {
+                        // Si está almorzando, el botón principal lo vuelve activo
+                        btnEstadoIcon = "fa-undo";
+                        btnEstadoAction = `ponerAlmorzar(${i})`;
+                        btnEstadoTitle = "Volver de Almuerzo";
+                    }
+
+                    lista.innerHTML += `
 <div class="item">
     <div class="dom-info">
         <span class="posicion">#${i + 1}</span>
         <span class="nombre">${d.nombre}</span>
     </div>
     <div class="acciones">
-        <button class="btn-icon btnEstado" onclick="cambiarEstado(${i})" title="Cambiar Estado">
-            <i class="fas ${d.estado === 'activo' ? 'fa-route' : 'fa-check'}"></i>
+        <button class="btn-icon btnEstado" onclick="${btnEstadoAction}" title="${btnEstadoTitle}">
+            <i class="fas ${btnEstadoIcon}"></i>
+        </button>
+        <button class="btn-icon btnAlmorzar" onclick="ponerAlmorzar(${i})" title="${d.estado === 'almorzando' ? 'Terminar Almuerzo' : 'Poner a Almorzar'}">
+            <i class="fas ${d.estado === 'almorzando' ? 'fa-utensils' : 'fa-utensils'}"></i>
         </button>
         <button class="btn-icon btnEliminar" onclick="eliminar(${i})" title="Eliminar">
             <i class="fas fa-trash-alt"></i>
@@ -477,11 +607,13 @@
     <span class="estado ${clase}">${texto}</span>
 </div>
 `;
+                }
 
             });
 
             document.getElementById("activos").innerText = activos;
             document.getElementById("ruta").innerText = ruta;
+            document.getElementById("almorzando").innerText = almorzando;
             document.getElementById("total").innerText = domiciliarios.length;
 
         }
