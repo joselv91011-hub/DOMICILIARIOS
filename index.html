@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Panel de Domiciliarios</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #eef2f6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .top {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .agregar {
+            background: #28a745;
+            color: white;
+        }
+
+        .asignar {
+            background: #007bff;
+            color: white;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: #f5f5f5;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .lista {
+            margin-top: 10px;
+        }
+
+        .item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            flex-wrap: wrap;
+        }
+
+        .nombre {
+            font-weight: bold;
+        }
+
+        .posicion {
+            background: #222;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 5px;
+            margin-right: 8px;
+        }
+
+        .estado {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .activo {
+            background: #28a745;
+            color: white;
+        }
+
+        .ruta {
+            background: #ff9800;
+            color: white;
+        }
+
+        .acciones button {
+            margin-left: 5px;
+            padding: 6px 10px;
+            font-size: 12px;
+        }
+
+        .btnEstado {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btnEliminar {
+            background: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>Panel de Domiciliarios</h1>
+
+        <div class="top">
+
+            <input type="text" id="nombre" placeholder="Nombre del domiciliario">
+
+            <button class="agregar" onclick="agregar()">Agregar</button>
+
+            <button class="asignar" onclick="asignarPedido()">Asignar Pedido</button>
+
+        </div>
+
+        <div class="stats">
+
+            <div class="stat">Activos: <span id="activos">0</span></div>
+
+            <div class="stat">En Ruta: <span id="ruta">0</span></div>
+
+            <div class="stat">Total: <span id="total">0</span></div>
+
+        </div>
+
+        <div class="lista" id="lista"></div>
+
+    </div>
+
+    <script>
+
+        let domiciliarios = JSON.parse(localStorage.getItem("domiciliarios")) || [];
+
+        function guardar() {
+            localStorage.setItem("domiciliarios", JSON.stringify(domiciliarios));
+        }
+
+        function agregar() {
+
+            let nombre = document.getElementById("nombre").value.trim();
+
+            if (nombre === "") return;
+
+            domiciliarios.push({
+                nombre: nombre,
+                estado: "activo"
+            });
+
+            document.getElementById("nombre").value = "";
+
+            guardar();
+            render();
+        }
+
+        function cambiarEstado(i) {
+
+            domiciliarios[i].estado =
+                domiciliarios[i].estado === "activo" ? "ruta" : "activo";
+
+            guardar();
+            render();
+        }
+
+        function eliminar(i) {
+
+            domiciliarios.splice(i, 1);
+
+            guardar();
+            render();
+        }
+
+        function asignarPedido() {
+
+            let index = domiciliarios.findIndex(d => d.estado === "activo");
+
+            if (index === -1) {
+                alert("No hay domiciliarios activos");
+                return;
+            }
+
+            domiciliarios[index].estado = "ruta";
+
+            guardar();
+            render();
+        }
+
+        function render() {
+
+            let lista = document.getElementById("lista");
+
+            lista.innerHTML = "";
+
+            let activos = 0;
+            let ruta = 0;
+
+            domiciliarios.forEach((d, i) => {
+
+                if (d.estado === "activo") activos++;
+                if (d.estado === "ruta") ruta++;
+
+                let clase = d.estado === "activo" ? "activo" : "ruta";
+                let texto = d.estado === "activo" ? "ACTIVO" : "EN RUTA";
+
+                lista.innerHTML += `
+
+<div class="item">
+
+<div>
+
+<span class="posicion">#${i + 1}</span>
+
+<span class="nombre">${d.nombre}</span>
+
+<span class="estado ${clase}">${texto}</span>
+
+</div>
+
+<div class="acciones">
+
+<button class="btnEstado" onclick="cambiarEstado(${i})">
+Cambiar
+</button>
+
+<button class="btnEliminar" onclick="eliminar(${i})">
+Eliminar
+</button>
+
+</div>
+
+</div>
+
+`;
+
+            });
+
+            document.getElementById("activos").innerText = activos;
+            document.getElementById("ruta").innerText = ruta;
+            document.getElementById("total").innerText = domiciliarios.length;
+
+        }
+
+        render();
+
+    </script>
+
+</body>
+
+</html>
